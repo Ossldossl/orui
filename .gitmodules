@@ -1,0 +1,3 @@
+[submodule "dreid"]
+	path = dreid
+	url = https://github.com/ossldossl/dreid

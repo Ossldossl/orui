@@ -1,2 +1,2 @@
 # omui
-UI-Library for trying out the immediate-mode paradigm
+retained-mode ui-library in c using OpenGL
