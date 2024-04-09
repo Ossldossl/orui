@@ -1,28 +1,13 @@
 #include <stdio.h>
 
-#include "dreid/lib/dreid.h"
-#include "dreid/lib/dd_gfx.h"
-#include "dreid/lib/dd_log.h"
-
-void setup(dd_ctx* ctx) 
-{
-
-}
-
-void destroy(dd_ctx* ctx) 
-{
-
-}
+#define UI_BACKEND_WIN32_SOFTWARE
+#include "lib/orui.h"
+#include "lib/console.h"
 
 int main(int argc, char** argv) 
 {
-    return dd_app(&(dd_app_desc) {
-        .width = 1024,
-        .height = 1024,
-        .title = "orui example application",
-        .setup = setup,
-        .frame = null,
-        .destroy = destroy,
-        .is_reactive = true,
-    });
+	ui_window* w = orui_init(800, 600, "ORUI Test Application");
+	orui_create_window(800,600,"second window!");
+	orui_create_window(800,800,"third window");	
+	return orui_message_loop();
 }
