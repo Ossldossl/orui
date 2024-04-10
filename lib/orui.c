@@ -71,6 +71,12 @@ void orui_animate(void)
 void orui_paint(platform_window* window)
 {
     platform_begin_paint(window);
-    // TODO: paint widget tree
+
+    painter p; p.window = window; 
+    p.clip_rect = make_urect16(0, 0, window->height, window->width);
+    p.bits = window->bits;
+    
+    platform_draw_rect(&p, make_urect16(100, 100, 200, 200), 0x00FFFF);
+
     platform_end_paint(window);
 }

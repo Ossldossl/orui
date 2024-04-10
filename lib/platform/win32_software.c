@@ -5,6 +5,7 @@
 #include "../platform.h"
 #include "../misc.h"
 #include "../console.h"
+#include <stdio.h>
 
 typedef struct {
 	u8 wnd_count;	
@@ -17,16 +18,13 @@ char const * const normal_class = "normal";
 
 static void recreate_window_bitmap(platform_window* window)
 {
-	window->bits = realloc(window->bits, window->width * window->height * sizeof(px));
-	window->bmi.bmiHeader.biSize = sizeof(window->bmi);
+	window->bmi.bmiHeader.biSize = sizeof(BITMAPINFO);
 	window->bmi.bmiHeader.biWidth = window->width;
-	window->bmi.bmiHeader.biHeight = window->height;
+	window->bmi.bmiHeader.biHeight = -window->height;
 	window->bmi.bmiHeader.biPlanes = 1;
 	window->bmi.bmiHeader.biBitCount = 32;
 	window->bmi.bmiHeader.biCompression = BI_RGB;
-	window->bmi.bmiHeader.biSizeImage = 0;
-	window->bmi.bmiHeader.biClrUsed = 0;
-	window->bmi.bmiHeader.biSizeImage = 0;
+	window->bits = realloc(window->bits, window->width * window->height * sizeof(u32));
 }
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -39,6 +37,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_SIZE: {
 			wnd->width = LOWORD(lParam); wnd->height = HIWORD(lParam);
 			recreate_window_bitmap(wnd);
+			log_debug("SIZE");
 // TODO: update layout
 //			ui_widget_move() 
 		} break;
@@ -169,17 +168,18 @@ void platform_destroy_window(platform_window* wnd)
 //==== PAINTING ====
 void platform_begin_paint(platform_window* window)
 {
-	for (int y = 0; y < window->height; y++) {
-		u32 yoff = y * window->width;
-		for (int x = 0; x < window->width; x++) {
-			px* p = &window->bits[yoff + x];	
-			p->rgba = 0xFF00FF;
-		}
-	}	
+	// clear screen
+	u16 w = window->width; u16 h = window->height;
+
+	for (u64 i = 0; i < w*h; i++) {
+		u32* p = &window->bits[i];	
+		*p = 0xFF00FF;
+	}
 }
 
 void platform_end_paint(platform_window* window)
 {
+	// TODO: dont paint the entire window on small changes
 	StretchDIBits(window->dc,
 		0, 0, // dest pos
 		window->width, window->height,
@@ -188,5 +188,31 @@ void platform_end_paint(platform_window* window)
 		window->bits, 
 		&window->bmi,
 		DIB_RGB_COLORS,
-		SRCCOPY);
+		SRCCOPY
+	);
+}
+
+void debug_as_ppm(u32* bits, u16 width, u16 height)
+{
+	printf("\n\n");
+	printf("P3\n%d %d\n255\n", width, height);
+	for (u64 i = 0; i < width*height; i++) {
+		u32 p = bits[i];
+		printf("%3d %3d %3d ", r(p), g(p), b(p));
+		
+		if (i % 32 == 0) printf("\n");
+	}
+}
+
+void platform_draw_rect(painter* painter, urect16 r, u32 c)
+{
+	r = rect_clip(r, painter->clip_rect);
+	u32* bits = painter->bits;
+	u16 width = painter->window->width; u16 height = painter->window->height;
+	for (u16 y = r.t; y < r.b; y++) {
+		u64 yoff = y*width;
+		for (u16 x = r.l; x < r.r; x++) {
+			bits[yoff+(u64)x] = c;
+		}
+	}
 }

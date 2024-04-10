@@ -1,17 +1,14 @@
 #pragma once
 #include "misc.h"
 #include "platform.h"
+#include "widgets.h"
 
-typedef struct ui_widget ui_widget;
-typedef struct ui_window ui_window;
+typedef struct painter painter;
 
-struct ui_widget {
-    ui_window* root;
-};
-
-struct ui_window {
-    ui_widget w;    
-    platform_window n;
+struct painter {
+    platform_window* window;
+    urect16 clip_rect;
+    u32* bits;
 };
 
 typedef void (*on_tick_callback)(void);

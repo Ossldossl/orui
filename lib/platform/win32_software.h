@@ -5,7 +5,7 @@
 struct platform_window {
 	HWND hWnd;
 	HDC dc;
-	px* bits;
+	u32* bits;
 	u16 width, height;
 	BITMAPINFO bmi;
 };

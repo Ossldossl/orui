@@ -2,6 +2,8 @@
 
 #include "misc.h"
 
+typedef struct painter painter;
+
 #ifdef UI_BACKEND_WIN32_SOFTWARE
 #include "platform/win32_software.h"
 #endif
@@ -20,3 +22,5 @@ void platform_destroy(void);
 void platform_begin_paint(platform_window* window);
 void platform_end_paint(platform_window* window);
 
+#define ui_draw(type, args, ...) platform_draw_##type(widget->root, __VA_ARGS__) 
+void platform_draw_rect(painter* p, urect16 r, u32 c);
