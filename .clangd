@@ -1,4 +1,5 @@
 Diagnostics:
     Suppress: 
-        -Wmicrosoft-enum-forward-reference,
+        - unused-includes
+        - Wmicrosoft-enum-forward-reference
         

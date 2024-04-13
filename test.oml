@@ -1,8 +1,9 @@
+component Button at "testing/button.c"
+
 // primary_button is a style class of the widget "Button"
-primary_button(Button) {
+style primary_button for Button {
     // in here you change the default property-values for the default (active) state
     background_color: #181818;
-    text_determines_with: true;
     margin: (0, 10, 0, 10);
     border: 2;
     width: 100;
@@ -26,11 +27,14 @@ primary_button::INACTVE {
 
 // you can even "subclass" style-classes
 // and also directly specify properties of other states without specifying the default (or ACTIVE) state
-secondary_button(toggle_button) :: HOVERED {
-    background-color: #FF00FF;
+style secondary_button = toggle_button;
+secondary_button::HOVERED {
+    background-color: #ff00ff;
 }
+// short form:
+style secondary_button = toggle_button;
 
-test_widget = Panel {
+component test_widget = Panel {
     Label { text: "Custom Component"; font-size: 18px; }
     Panel {
         border-radius: 50px; background_color: #ff00ff;
@@ -40,7 +44,7 @@ test_widget = Panel {
 }
 
 // simple counter
-root = Window {
+component App = Window {
     dimensions: (1024, 1024);
     title: "Counter";
     Panel {

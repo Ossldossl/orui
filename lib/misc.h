@@ -26,6 +26,7 @@ typedef struct urect16 urect16;
 #define ui_max(a,b) (((a) > (b)) ? (a) : (b))
 #define ui_min(a,b) (((a) < (b)) ? (a) : (b))
 #define ui_abs(a) (a = a<0 ? a*-1 : a)
+#define reinterpret(value, as) (*(as*)&value)
 
 #define foreach(name, array, type)          \
 	for (int i = 0; i < array->len; i++) {  \
@@ -42,6 +43,7 @@ struct str {
 
 u16 str_len(char* data);
 str make_str(char* data, u16 len);
+#define new_str(_data, _len) (str){.data=_data,.len=_len}
 
 struct wstr {
     wchar* data; // null terminated
@@ -49,6 +51,8 @@ struct wstr {
 };
 
 wstr str_to_wstr(str* a);
+// TODO: str_cmp
+bool str_cmp(str a, str b);
 
 //==== COLOR ====
 typedef u32 color;
@@ -96,6 +100,7 @@ struct urect16 {
 
 urect16 rect_clip(urect16 r, urect16 clip);
 urect16 rect_bounding_box(urect16 a, urect16 b);
+bool rect_equals(urect16 a, urect16 b);
 bool rect_contains(urect16 r, upoint16 p);
 
 //==== BOX CONSTRAINT ====

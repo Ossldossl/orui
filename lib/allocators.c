@@ -92,3 +92,59 @@ void bucka_destroy(bucka* b)
 	VirtualFree(b->data, b->element_size * b->capacity, MEM_DECOMMIT | MEM_RELEASE);
 	return;
 }
+
+//==== ARENA ====
+arena arena_init(u32 bucket_size)
+{
+	arena result;
+	result.bucket_count = 1;
+	result.bucket_size = bucket_size;
+	result.buckets = malloc(1 * sizeof(arena_bucket));
+	arena_bucket* bucket = &result.buckets[0];
+	bucket->data = malloc(bucket_size);
+	bucket->cur = bucket->data;
+	bucket->last_alloc_size = 0;
+	return result;
+}
+
+void* arena_alloc(arena* arena, u32 size)
+{
+	arena_bucket* bucket = &arena->buckets[arena->bucket_count-1];
+	u64 diff = (u64)((u64)bucket->cur + size) - (u64)bucket->data;
+	if (diff > arena->bucket_size) {
+		// alloc new bucket
+		arena->bucket_count++;
+		arena->buckets = realloc(arena->buckets, arena->bucket_count * sizeof(arena_bucket));
+		bucket = &arena->buckets[arena->bucket_count-1];
+		bucket->data = malloc(arena->bucket_size);
+		bucket->cur = bucket->data;
+		bucket->last_alloc_size = 0;
+	}
+	void* result = bucket->cur;
+	bucket->cur = ((char*)bucket->cur) + size;
+	return result;
+}
+
+void arena_free_last(arena* arena) 
+{
+	arena_bucket* bucket = &arena->buckets[arena->bucket_count-1];
+	bucket->cur = ((char*)bucket->cur) - bucket->last_alloc_size;
+}
+
+void arena_reset(arena* arena)
+{
+	// free all other buckets, except the first one
+	arena->buckets = realloc(arena->buckets, sizeof(arena_bucket));
+	arena_bucket* bucket = &arena->buckets[0];
+	bucket->cur = bucket->data;
+	arena->bucket_count = 1;
+}
+
+void arena_destroy(arena* arena)
+{
+	for (int i = 0; i < arena->bucket_count; i++) {
+		arena_bucket* bucket = &arena->buckets[i];
+		free(bucket->data);
+	}
+	free(arena->buckets);
+}

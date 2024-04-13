@@ -30,6 +30,7 @@ bool orui_is_animating(void);
 ui_panel* orui_get_root(ui_window* w);
 void orui_relayout(ui_widget* w);
 void orui_repaint(ui_widget* w);
+void orui_set_state(ui_widget* w, u8 state_id, bool dont_animate);
 //=== PLATFORM LAYER INTEROP ====
 void ui_input(void);
 void orui_animate(void);

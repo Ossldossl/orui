@@ -28,6 +28,29 @@ ui_window* orui_init(u16 width, u16 height, char* title)
     platform_init();
     ui_state.windows = bucka_init(32, sizeof(ui_window));
     ui_window* result = orui_create_window(width, height, title);
+
+    // IMPORTANT!: UPDATE WHEN STRUCT WIDGET CHANGES
+    style_add_props(new_str("absolute", 9), offsetof(ui_widget, absolute), PROPERTY_BOOL);
+    style_add_props(new_str("offsets", 8), offsetof(ui_widget, offset), PROPERTY_URECT16);
+    style_add_props(new_str("min-width", 10), offsetof(ui_widget, min_w), PROPERTY_U16);
+    style_add_props(new_str("min-height", 11), offsetof(ui_widget, min_h), PROPERTY_U16);
+    style_add_props(new_str("max-width", 10), offsetof(ui_widget, max_w), PROPERTY_U16);
+    style_add_props(new_str("max-height", 11), offsetof(ui_widget, max_h), PROPERTY_U16);
+    style_add_props(new_str("width", 6), offsetof(ui_widget, pref_w), PROPERTY_U16);
+    style_add_props(new_str("height", 7), offsetof(ui_widget, pref_h), PROPERTY_U16);
+
+    style_add_props(new_str("grow", 5), offsetof(ui_widget, grow), PROPERTY_FLOAT);
+    style_add_props(new_str("shrink", 7), offsetof(ui_widget, shrink), PROPERTY_FLOAT);
+    
+    style_add_props(new_str("border-width", 13), offsetof(ui_widget, border_width), PROPERTY_URECT16);
+    style_add_props(new_str("margin", 7), offsetof(ui_widget, margin), PROPERTY_URECT16);
+    style_add_props(new_str("padding", 8), offsetof(ui_widget, padding), PROPERTY_URECT16);
+    
+    style_add_props(new_str("background", 11), offsetof(ui_widget, background), PROPERTY_COLOR);
+    style_add_props(new_str("foreground", 11), offsetof(ui_widget, foreground), PROPERTY_COLOR);
+    style_add_props(new_str("border", 7), offsetof(ui_widget, border), PROPERTY_COLOR);
+    
+    style_add_props(new_str("z-index", 8), offsetof(ui_widget, zindex), PROPERTY_U16);
     return result;
 }
 
@@ -192,7 +215,7 @@ void orui_set_reactive(bool reactive, on_tick_callback callback)
     }
 }
 
-[[always_inline]] bool orui_is_animating(void)
+bool orui_is_animating(void)
 {
     return ui_state.is_animating;
 }

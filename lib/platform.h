@@ -4,6 +4,9 @@
 
 typedef struct painter painter;
 
+// TODO: find better solution for suppressing errors
+#define UI_BACKEND_WIN32_SOFTWARE
+
 #ifdef UI_BACKEND_WIN32_SOFTWARE
 #include "platform/win32_software.h"
 #endif

@@ -22,6 +22,7 @@ int main(int argc, char** argv)
 	a = panel(&root->w);
 	a->w.background = 0xFF00ff00;
 	a->w.fixed = true; a->w.pref_w = 100; a->w.pref_h = 200;
+	a->w.margin.l = 15;
 
 	a = panel(&root->w);
 	a->w.background = 0xFFFF00FF;

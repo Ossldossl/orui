@@ -45,6 +45,11 @@ urect16 rect_bounding_box(urect16 a, urect16 b)
     return a;
 }
 
+bool rect_equals(urect16 a, urect16 b)
+{
+    return reinterpret(a, u64) == reinterpret(b, u64);
+}
+
 bool rect_contains(urect16 r, upoint16 p)
 {
     return 

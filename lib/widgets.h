@@ -1,20 +1,18 @@
 #pragma once
 #include "platform.h"
 #include "misc.h"
+#include "style.h"
 
 typedef enum ui_msg ui_msg;
-typedef enum ui_easing ui_easing;
-typedef enum ui_states ui_states;
-typedef enum ui_state_property_kind ui_state_property_kind;
-typedef struct ui_state_property ui_state_property;
-typedef struct ui_state_transition_delta ui_state_transition_delta;
-typedef struct ui_state_transition ui_state_transition;
 
 typedef struct ui_widget ui_widget;
 typedef struct ui_window ui_window;
+
 typedef enum ui_align ui_align;
 typedef enum ui_flow_direction ui_flow_direction;
 typedef struct ui_panel ui_panel;
+
+typedef struct ui_label ui_label;
 typedef struct ui_button ui_button;
 
 typedef i32 (*message_handler)(ui_widget* widget, ui_msg msg, i32 di, void* dp);
@@ -48,72 +46,6 @@ enum ui_msg {
     MSG_COUNT,
 };
 
-// see https://easings.net
-enum ui_easing {
-    EASE_LINEAR,
-    EASE_IN_SINE,
-    EASE_OUT_SINE,
-    EASE_INOUT_SINE,
-
-    EASE_IN_QUAD,
-    EASE_OUT_QUAD,
-    EASE_INOUT_QUAD,
-
-    EASE_IN_CUBIC,
-    EASE_OUT_CUBIC,
-    EASE_INOUT_CUBIC,
-
-    EASE_IN_QUART,
-    EASE_OUT_QUART,
-    EASE_INOUT_QUART,
-
-    EASE_IN_ELASTIC,
-    EASE_OUT_ELASTIC,
-    EASE_INOUT_ELASTIC,
-};
-
-enum ui_states {
-    STATE_ACTIVE,
-    STATE_INACTIVE,
-    STATE_HOVERED,
-    STATE_PRESSED,
-    
-    STATE_COUNT,
-};
-
-enum ui_state_property_kind {
-    PROPERTY_U16,
-    PROPERTY_FLOAT,
-    PROPERTY_URECT16,
-    PROPERTY_COLOR,
-    PROPERTY_STR, // won't be interpolated
-    PROPERTY_COUNT
-};
-
-struct ui_state_property {
-    ui_state_property_kind kind;
-    union {
-        u16 u16_;
-        float float_;
-        urect16 urect16_;
-        color color_;
-        str str_;
-    } as;
-};
-
-struct ui_state_transition_delta {
-    u8 offset; // byte offset from start to property
-    ui_state_property target;
-};
-
-struct ui_state_transition {
-    u32 duration; // in ms
-    ui_easing ease;
-    
-    u8 delta_count;
-    ui_state_transition_delta deltas[1];
-};
-
 struct ui_widget {
     ui_window* root;
     ui_widget* parent; 
@@ -124,7 +56,10 @@ struct ui_widget {
 
     bool dirty;
     bool fixed;
+    // when a widget is absolute, it isn't part of the main widget tree, and rather gets its "own" tree
     urect16 bounds;
+    bool absolute;
+    urect16 offset; // for relative and absolute positioning
     u16 min_w, min_h;
     u16 max_w, max_h;
     u16 pref_w, pref_h;
@@ -134,28 +69,19 @@ struct ui_widget {
     urect16 border_width;
     urect16 margin;
     urect16 padding;
+    urect16 border_radius;
 
     // TODO: image backgrounds
     color background;
     color foreground; // e.g. text
     color border;
-    urect16 border_radius;
     u16 zindex;
 
     message_handler wmsg;
     layout_handler layout_handler;
     paint_handler paint_handler;
 
-    u8 cur_state;
-    // active state -> new state
-    // index for transition is cur_state,
-    // so there always have to be STATE_COUNT-1 transitions
-    // transitions[STATE_COUNT] ^= cur_transition, 
-    // which is a synthesized transition 
-    // and always the current one being used,
-    // whereas all transitions before are "prototypes" for
-    // synthesizing this current transition
-    ui_state_transition transitions[STATE_COUNT];
+    ui_style_state* style_state;
 };
 
 struct ui_window {
