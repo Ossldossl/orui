@@ -38,15 +38,21 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			wnd->width = LOWORD(lParam); wnd->height = HIWORD(lParam);
 			recreate_window_bitmap(wnd);
 			log_debug("SIZE");
-// TODO: update layout
-//			ui_widget_move() 
+			orui_update((ui_window*)wnd, UPDATE_RESIZE, 0, new_uvec2(wnd->width, wnd->height));
 		} break;
 		case WM_PAINT: {
 			log_debug("paint (%s)", wnd == state.main_window ? "true" : "false");
 			PAINTSTRUCT ps;
 			BeginPaint(wnd->hWnd, &ps);
-			orui_paint(wnd);
+			platform_end_paint(wnd);
 			EndPaint(wnd->hWnd, &ps);
+		} break;
+		case WM_MOUSEMOVE: {
+			i16 xpos = LOWORD(lParam); i16 ypos = HIWORD(lParam);
+			log_debug("MOUSE MOVE (%d:%d)", xpos, ypos);
+			uvec2 pos;
+			pos.x = *(i16*)&xpos; pos.y = *(i16*)&ypos;
+			orui_update((ui_window*)wnd, UPDATE_MOUSE_MOVE, 0, pos);	
 		}
 	}
 
@@ -206,6 +212,9 @@ void debug_as_ppm(u32* bits, u16 width, u16 height)
 
 void platform_draw_rect(painter* painter, urect16 r, u32 c)
 {
+	r.t += painter->cur_offset.y; r.l += painter->cur_offset.x;
+	r.b += painter->cur_offset.y; r.r += painter->cur_offset.x;
+
 	r = rect_clip(r, painter->clip_rect);
 	u32* bits = painter->bits;
 	u16 width = painter->window->width; u16 height = painter->window->height;

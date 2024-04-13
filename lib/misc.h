@@ -16,13 +16,21 @@ typedef u32 wchar;
 typedef struct str str;
 typedef struct wstr wstr;
 
+typedef struct box_constraint box_constraint;
 typedef struct upoint16 upoint16;
+typedef struct upoint16 uvec2;
 typedef struct rect rect;
 typedef struct urect16 urect16;
 
 #define null ((void*)0)
-#define max(a,b) (((a) > (b)) ? (a) : (b))
-#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define ui_max(a,b) (((a) > (b)) ? (a) : (b))
+#define ui_min(a,b) (((a) < (b)) ? (a) : (b))
+#define ui_abs(a) (a = a<0 ? a*-1 : a)
+
+#define foreach(name, array, type)          \
+	for (int i = 0; i < array->len; i++) {  \
+		type name = array_get(i);           
+
 
 //==== UTF-8 ====
 
@@ -43,7 +51,7 @@ struct wstr {
 wstr str_to_wstr(str* a);
 
 //==== COLOR ====
-typedef u32 ui_color;
+typedef u32 color;
 #define a(color) ((color&0xFF000000) >> 24)
 #define r(color) ((color&0x00FF0000) >> 16)
 #define g(color) ((color&0x0000FF00) >>  8)
@@ -70,6 +78,9 @@ struct upoint16 {
 };
 
 #define make_upoint16(_x, _y) (upoint16){.x=_x,.y=_y}
+#define new_uvec2(_x, _y) (uvec2){.x=_x, .y=_y}
+
+uvec2 uvec2_sub(uvec2 a, uvec2 b);
 
 //==== RECTS ====
 // TODO: Make this more space efficient
@@ -86,3 +97,18 @@ struct urect16 {
 urect16 rect_clip(urect16 r, urect16 clip);
 urect16 rect_bounding_box(urect16 a, urect16 b);
 bool rect_contains(urect16 r, upoint16 p);
+
+//==== BOX CONSTRAINT ====
+struct box_constraint {
+	u16 min_w, min_h;
+	u16 max_w, max_h;
+};
+
+box_constraint bc_loose(u16 max_w, u16 max_h);
+box_constraint bc_tight(u16 w, u16 h);
+box_constraint bc_loose_from_bounds(urect16 bounds);
+box_constraint bc_tight_from_bounds(urect16 bounds);
+box_constraint bc_make(u16 min_w, u16 min_h, u16 max_w, u16 max_h);
+bool bc_is_height_bounded(box_constraint bc);
+bool bc_is_width_bounded(box_constraint bc);
+uvec2 bc_constrain(box_constraint bc, uvec2 v);
