@@ -15,7 +15,10 @@ ui_window* orui_create_window(u16 width, u16 height, char* title)
 {
     ui_window* result = bucka_alloc(&ui_state.windows);
     result->relayout_start_point = null;
-    ui_panel* p = panel_as_root(result);
+
+    str id = cconcats1(title, snew_str("-root"));
+
+    ui_panel* p = panel_as_root(result, id);
     p->w.root = result;
     p->w.pref_w = width; p->w.pref_h = height;
     result->root = p;
@@ -23,13 +26,8 @@ ui_window* orui_create_window(u16 width, u16 height, char* title)
     return result;
 }
 
-ui_window* orui_init(u16 width, u16 height, char* title)
+void orui_style_init(void)
 {
-    platform_init();
-    ui_state.windows = bucka_init(32, sizeof(ui_window));
-    ui_window* result = orui_create_window(width, height, title);
-
-    // IMPORTANT!: UPDATE WHEN STRUCT WIDGET CHANGES
     style_add_props(new_str("absolute", 9), offsetof(ui_widget, absolute), PROPERTY_BOOL);
     style_add_props(new_str("offsets", 8), offsetof(ui_widget, offset), PROPERTY_URECT16);
     style_add_props(new_str("min-width", 10), offsetof(ui_widget, min_w), PROPERTY_U16);
@@ -51,6 +49,16 @@ ui_window* orui_init(u16 width, u16 height, char* title)
     style_add_props(new_str("border", 7), offsetof(ui_widget, border), PROPERTY_COLOR);
     
     style_add_props(new_str("z-index", 8), offsetof(ui_widget, zindex), PROPERTY_U16);
+
+    panel_init();
+}
+
+ui_window* orui_init(u16 width, u16 height, char* title)
+{
+    platform_init();
+    orui_style_init();
+    ui_state.windows = bucka_init(32, sizeof(ui_window));
+    ui_window* result = orui_create_window(width, height, title);
     return result;
 }
 
@@ -93,6 +101,10 @@ void orui_update(ui_window* w, orui_update_kind kind, int key, uvec2 vd)
             // vd ^= mouse pos relative to window corner
             // HANDLE ABSOLUTE POSITIONED WIDGETS
             ui_widget* hovered = orui_find_element_by_point((ui_widget*)w->root, vd);
+            if (hovered == null) {
+                log_error("no hovered found!");
+                break;
+            }
             if (hovered != w->hovered) {
                 if (w->hovered) {
                     w->hovered->wmsg(w->hovered, MSG_HOVER_END, 0, null);
@@ -103,6 +115,12 @@ void orui_update(ui_window* w, orui_update_kind kind, int key, uvec2 vd)
             if (w->hovered) {
                 uvec2 delta = uvec2_sub(vd, w->last_mouse_pos);
                 w->hovered->wmsg(w->hovered, MSG_MOUSE_MOVE, 0, &delta);
+            }
+        } break;
+        case UPDATE_MOUSE_LEAVE: {
+            if (w->hovered) {
+                w->hovered->wmsg(w->hovered, MSG_HOVER_END, 0, null);
+                w->hovered = null;
             }
         } break;
     }
@@ -116,7 +134,7 @@ void orui_update(ui_window* w, orui_update_kind kind, int key, uvec2 vd)
             bc = bc_tight(sp->pref_w, sp->pref_h);
         }
         uvec2 size = sp->layout_handler(sp, bc);
-        sp->bounds.r = size.x; sp->bounds.b = size.y;
+        sp->bounds.r = sp->bounds.l + size.x; sp->bounds.b = sp->bounds.t + size.y;
         w->relayout_start_point = null;
     }
 
@@ -157,6 +175,7 @@ void orui_relayout(ui_widget* w)
 
     ui_window* wnd = w->root;
     if (wnd->relayout_start_point) {
+        if (wnd->relayout_start_point == w) return;
         // TODO: FUNKTIONIERT NICHT FÜR ABSOLUT POSITIONIERTE WIDGETS
         // find common ancestor
         u16 other_depth = wnd->relayout_start_depth;
@@ -165,9 +184,9 @@ void orui_relayout(ui_widget* w)
         cur = wnd->relayout_start_point;
         ui_widget* other = w;
 
-        // wenn das neue widget tiefer sitzt als das alte
+        // wenn das neue widget höher sitzt als das alte
         u16 depth = own_depth;
-        if (diff < 0) {
+        if (diff > 0) {
             cur = other; diff *= -1;
             other = wnd->relayout_start_point;
             depth = other_depth;
@@ -190,7 +209,12 @@ void orui_relayout(ui_widget* w)
         return;
     }
 
-    wnd->relayout_start_point = w;
+    if (w->parent) {
+        wnd->relayout_start_point = w->parent;
+    } else {
+        wnd->relayout_start_point = w;
+    }
+
     wnd->relayout_start_depth = own_depth;
 }
 

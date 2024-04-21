@@ -1,5 +1,7 @@
 #include "misc.h"
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 u16 str_len(char* data)
 {
@@ -16,6 +18,54 @@ str make_str(char* data, u16 len)
     return (str) {
         .data = data, .len = len
     };
+}
+
+str concat(str a, str b)
+{
+    str result;
+    // excluding null character
+    result.len = a.len + b.len;
+    result.data = malloc(result.len+1);
+    memcpy(result.data, a.data, a.len);
+    memcpy(result.data + a.len, b.data, b.len);
+    result.data[result.len] = '\0';
+    return result;
+}
+
+str cconcat(char* a, char* b)
+{
+    str result;
+    u32 al = strlen(a); u32 bl = strlen(b);
+    result.len = al + bl;
+    result.data = malloc(result.len + 1);
+    memcpy(result.data, a, al);
+    memcpy(result.data + al, b, bl);
+    result.data[result.len] = '\0';
+    return result;
+}
+
+str cconcats1(char* a, str b)
+{
+    str result;
+    u32 al = strlen(a);
+    result.len = al + b.len;
+    result.data = malloc(result.len+1);
+    memcpy(result.data, a, al);
+    memcpy(result.data + al, b.data, b.len);
+    result.data[result.len] = '\0';
+    return result;
+}
+
+str cconcats2(str a, char* b)
+{
+    str result;
+    u32 bl = strlen(b);
+    result.len = bl + a.len;
+    result.data = malloc(result.len+1);
+    memcpy(result.data, a.data, a.len);
+    memcpy(result.data + a.len, b, bl);
+    result.data[result.len] = '\0';
+    return result;
 }
 
 //=== POINTS ====

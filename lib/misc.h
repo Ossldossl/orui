@@ -44,6 +44,7 @@ struct str {
 u16 str_len(char* data);
 str make_str(char* data, u16 len);
 #define new_str(_data, _len) (str){.data=_data,.len=_len}
+#define snew_str(_data) (str){.data=_data,.len=sizeof(_data)}
 
 struct wstr {
     wchar* data; // null terminated
@@ -53,6 +54,10 @@ struct wstr {
 wstr str_to_wstr(str* a);
 // TODO: str_cmp
 bool str_cmp(str a, str b);
+str concats(str a, str b);
+str cconcat(char* a, char* b);
+str cconcats1(char* a, str b);
+str cconcats2(str a, char* b);
 
 //==== COLOR ====
 typedef u32 color;

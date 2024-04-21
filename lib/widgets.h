@@ -26,6 +26,10 @@ void orui_move(ui_widget* w, urect16 new_bounds, bool relayout);
 void orui_repaint(ui_widget* w);
 void orui_relayout(ui_widget* w);
 
+void widget_set_props(ui_widget* w, u8 state_id, str id, ui_state_property value);
+void widget_set_prop(ui_widget* w, u8 state_id, char* id, u8 id_len, ui_state_property value);
+void widget_finalize(ui_widget* w);
+
 enum ui_msg {
     MSG_LDOWN,
     MSG_CLICK,
@@ -53,6 +57,9 @@ struct ui_widget {
     ui_widget** children;
     u16 child_count;
     u16 child_cap;
+
+    str id;
+    str hero_id; // for transitions
 
     bool dirty;
     bool fixed;
@@ -126,8 +133,9 @@ struct ui_panel {
     ui_flow_direction flow;
 };
 
-ui_panel* panel(ui_widget* parent);
-ui_panel* panel_as_root(ui_window* root);
+void panel_init(void);
+ui_panel* panel(ui_widget* parent, str id);
+ui_panel* panel_as_root(ui_window* root, str id);
 
 //==== BUTTON ====
 typedef enum ui_button_states {

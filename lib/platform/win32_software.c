@@ -49,11 +49,41 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		} break;
 		case WM_MOUSEMOVE: {
 			i16 xpos = LOWORD(lParam); i16 ypos = HIWORD(lParam);
-			log_debug("MOUSE MOVE (%d:%d)", xpos, ypos);
+			xpos = max(0, xpos);
+			ypos = max(0, ypos);
 			uvec2 pos;
 			pos.x = *(i16*)&xpos; pos.y = *(i16*)&ypos;
+			if (!wnd->tracking_mouse) {
+				wnd->me.cbSize = sizeof(TRACKMOUSEEVENT);
+				wnd->me.dwFlags = TME_HOVER | TME_LEAVE;
+				wnd->me.dwHoverTime = HOVER_DEFAULT;
+				wnd->me.hwndTrack = wnd->hWnd;
+				TrackMouseEvent(&wnd->me);
+				wnd->tracking_mouse = true;
+			}
+			log_debug("MOUSE MOVE (%d:%d)", xpos, ypos);
 			orui_update((ui_window*)wnd, UPDATE_MOUSE_MOVE, 0, pos);	
-		}
+		} break;
+		case WM_LBUTTONDOWN: {
+			SetCapture(wnd->hWnd);
+			i16 xpos = LOWORD(lParam); i16 ypos = HIWORD(lParam);
+			uvec2 pos;
+			pos.x = *(i16*)&xpos; pos.y = *(i16*)&ypos;
+			orui_update((ui_window*)wnd, UPDATE_LDOWN, 0, pos);
+		} break;
+		case WM_LBUTTONUP: {
+			ReleaseCapture();
+		} break;
+		case WM_MOUSEHOVER: {
+			log_debug("HOVER!");
+			wnd->tracking_mouse = false;
+			orui_update((ui_window*)wnd, UPDATE_HOVER, 0, new_uvec2(0,0));
+		} break;
+		case WM_MOUSELEAVE: {
+			log_debug("LEAVE!");
+			wnd->tracking_mouse = false;
+			orui_update((ui_window*)wnd, UPDATE_MOUSE_LEAVE, 0, new_uvec2(0,0));
+		} break;
 	}
 
 	return DefWindowProc(hWnd, msg, wParam, lParam);
@@ -64,6 +94,7 @@ void platform_init(void)
     WNDCLASS wc = {0};
     wc.lpfnWndProc = WindowProc;
     wc.lpszClassName = normal_class;
+	wc.style = CS_DBLCLKS;
 	RegisterClass(&wc);
 
 	state.wnd_count = 0;
@@ -110,7 +141,7 @@ bool platform_create_window(platform_window* wnd, u16 width, u16 height, char* t
 		WS_EX_ACCEPTFILES,
 		normal_class,
 		title,
-		WS_OVERLAPPEDWINDOW,
+		WS_OVERLAPPEDWINDOW | WS_THICKFRAME,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		width,
 		height,

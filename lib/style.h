@@ -1,5 +1,6 @@
 #pragma once
 #include "misc.h"
+#include <stdbool.h>
 
 typedef enum ui_easing ui_easing;
 typedef enum ui_states ui_states;
@@ -54,6 +55,16 @@ enum ui_state_property_kind {
     PROPERTY_COUNT
 };
 
+//#define bool bool
+
+#define REAL_TYPE_PROPERTY_BOOL bool_
+#define REAL_TYPE_PROPERTY_U16 u16_
+#define REAL_TYPE_PROPERTY_FLOAT float_
+#define REAL_TYPE_PROPERTY_URECT16 urect16_
+#define REAL_TYPE_PROPERTY_COLOR color_
+#define REAL_TYPE_PROPERTY_STR str_
+#define REAL_TYPE_PROPERTY_ENUM u64_
+
 #ifdef STYLE_STRINGS_IMPLEMENTATION
 char* ui_state_property_kind_strings[] = {
     "BOOL",
@@ -95,7 +106,8 @@ struct ui_state_transition {
     ui_easing ease;
     
     u8 delta_count;
-    ui_state_transition_delta deltas[1];
+    u8 delta_cap;
+    ui_state_transition_delta* deltas;
 };
 
 struct ui_style_state {
@@ -110,8 +122,10 @@ struct ui_style_state {
 
     u8 cur_state;
     u8 state_count;
-    ui_state_transition** transitions;
+    ui_state_transition transition;
 };
+
+#define style_get_transition(style, index) (&style->transition)[index]
 
 ui_style_state* new_style(char* name, u8 len, u8 state_count);
 ui_style_state* new_styles(str name, u8 state_count);
@@ -128,9 +142,8 @@ u64 style_get_enum_values(str id);
 ui_state_property_def style_get_prop(char* id, u8 len);
 ui_state_property_def style_get_props(str id);
 
-ui_state_transition* style_config_state(ui_style_state* style_state, u8 state_id, u8 change_count);
-#define PROP_VALUE(type, type_enum, value) ((ui_state_property){.kind=type_enum, .as.type##_ = value})
-#define STYLE_ADD_CHANGE_STATIC(transition, name, type, enum_type, value) style_add_changes(transition, new_str(name, sizeof(name)), PROP_VALUE(type, enum_type, value))
-void style_add_change(ui_state_transition* trans, char* id, u8 len, ui_state_property target);
-void style_add_changes(ui_state_transition* trans, str id, ui_state_property target);
+#define GET_TYPE(type_enum) REAL_TYPE_##type_enum
+#define PROP_VALUE(type_enum, value) ((ui_state_property){.kind=type_enum, .as.GET_TYPE(type_enum) = value})
+void style_add_change(ui_style_state* state, u8 state_id, char* id, u8 len, ui_state_property target);
+void style_add_changes(ui_style_state* state, u8 state_id, str id, ui_state_property target);
 void style_set_transition(ui_style_state* style_state, u8 state_id, u32 duration, ui_easing easing);

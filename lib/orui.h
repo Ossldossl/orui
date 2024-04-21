@@ -15,6 +15,8 @@ struct painter {
 typedef enum {
     UPDATE_KEYPRESS,
     UPDATE_MOUSE_MOVE,
+    UPDATE_HOVER,
+    UPDATE_MOUSE_LEAVE,
     UPDATE_LDOWN,
     UPDATE_LUP,
     UPDATE_RESIZE,
@@ -31,6 +33,7 @@ ui_panel* orui_get_root(ui_window* w);
 void orui_relayout(ui_widget* w);
 void orui_repaint(ui_widget* w);
 void orui_set_state(ui_widget* w, u8 state_id, bool dont_animate);
+void orui_set_state_forced(ui_widget *w, u8 state_id, bool dont_animate);
 //=== PLATFORM LAYER INTEROP ====
 void ui_input(void);
 void orui_animate(void);

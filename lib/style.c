@@ -32,7 +32,10 @@ void style_add_props(str id, u8 offset, ui_state_property_kind kind)
 
 void style_add_enum_value(char *id, u8 len, u64 value)
 {
-    if (map_get(&enum_values, id, len) != null) {
+    u64 v = (u64)map_get(&enum_values, id, len);
+    if (v != 0) {
+        if (v == value) return;
+
         log_fatal("Enum value for %s already exists!", id);
         PostQuitMessage(-1);
     }
@@ -63,7 +66,7 @@ ui_state_property_def style_get_prop(char* id, u8 len)
 {
     void* result = map_get(&prop_map, id, len);
     u64 conv_hack = (u64)result;
-    return *(ui_state_property_def*)&conv_hack;
+    return reinterpret(conv_hack, ui_state_property_def);
 }
 
 ui_state_property_def style_get_props(str id)
@@ -74,14 +77,15 @@ ui_state_property_def style_get_props(str id)
 // default state is always state 0
 ui_style_state* new_style(char* name, u8 len, u8 state_count)
 {
-    ui_style_state* result = malloc(sizeof(ui_style_state));
-    result->state_count = state_count;
-    result->cur_state = 0;
-    result->transitions = malloc(sizeof(ui_state_transition*) * state_count);
     if (map_get(&classes, name, len) != null) {
         log_fatal("style class %s already exists!", name);
         PostQuitMessage(-1);
     }
+    u32 size = sizeof(ui_style_state) + (state_count-1) * sizeof(ui_state_transition);
+    ui_style_state* result = malloc(size);
+    result->state_count = state_count;
+    result->cur_state = 0;
+    memset(&result->transition, 0, (state_count) * sizeof(ui_state_transition));
     map_set(&classes, name, len, result);
     return result;
 }
@@ -102,13 +106,11 @@ ui_style_state* style_inherit(char* name, u8 name_len, char* from, u8 len)
     ui_style_state* result = new_style(name, name_len, from_style->state_count);
     // copy transition data over
     for (int i = 0; i < result->state_count; i++) {
-        ui_state_transition* from_trans = from_style->transitions[i];
-
-        u32 size = sizeof(ui_state_transition) + sizeof(ui_state_transition_delta) * (from_trans->delta_count-1);
-        ui_state_transition* transition = malloc(size);
-        memcpy_s(transition, size, from_trans, size);
-
-        result->transitions[i] = transition;
+        ui_state_transition* from_trans = &style_get_transition(from_style, i);
+        ui_state_transition* to_trans = &style_get_transition(result, i);
+        memcpy(to_trans, from_trans, sizeof(ui_state_transition));
+        to_trans->deltas = malloc(sizeof(ui_state_transition_delta) * to_trans->delta_cap);
+        memcpy(to_trans->deltas, from_trans->deltas, sizeof(ui_state_transition_delta) * to_trans->delta_cap);
     }
 
     return result;
@@ -120,42 +122,21 @@ ui_style_state* style_inherits(str name, str from)
 }
 
 //=== STYLE CONFIG
-// WARNING: SPECIFY STYLE STATES IN THE ORDER OF APPEARANCE IN THE ENUM
-u8 change_counter;
-ui_state_transition* style_config_state(ui_style_state* style_state, u8 state_id, u8 change_count)
-{
-    change_counter = 0;    
-    if (style_state->transitions[state_id] != null) {
-        ui_state_transition* trans = style_state->transitions[state_id];
-        if (change_count > trans->delta_count) {
-            trans->delta_count = change_count;
-            trans = realloc(trans, 
-                  sizeof(ui_state_transition) 
-                + sizeof(ui_state_transition_delta) * (trans->delta_count-1));
-            style_state->transitions[state_id] = trans;
-        }
-        return trans;
-    }
-
-    ui_state_transition* transition = malloc(
-          sizeof(ui_state_transition) 
-        + sizeof(ui_state_transition_delta) * (change_count-1)
-    );
-    transition->delta_count = change_count;
-    transition->duration = 0; transition->ease = EASE_LINEAR;
-    style_state->transitions[state_id] = transition;
-    return transition;
-}
-
 void style_set_transition(ui_style_state* style_state, u8 state_id, u32 duration, ui_easing easing)
 {
-    ui_state_transition* trans = style_state->transitions[state_id];
+    ui_state_transition* trans = &style_get_transition(style_state, state_id);
     trans->duration = duration; trans->ease = easing;
 }
 
-void style_add_change(ui_state_transition* trans, char* id, u8 len, ui_state_property target)
+void style_add_change(ui_style_state* state, u8 state_id, char* id, u8 len, ui_state_property target)
 {
+    ui_state_transition* trans = &style_get_transition(state, state_id);
+
     ui_state_property_def def = style_get_prop(id, len);
+    if (reinterpret(def, u64) == 0) {
+        log_fatal("style property \"%s\" not found!", id);
+        PostQuitMessage(-1);
+    }
     ui_state_transition_delta* delta;
     // check if we need to override an offset
     bool replace = false;
@@ -168,12 +149,12 @@ void style_add_change(ui_state_transition* trans, char* id, u8 len, ui_state_pro
     }
 
     if (!replace) {
-        change_counter++;
-        if (change_counter > trans->delta_count) {
-            log_fatal("More style property changes than specified, TODO: realloc");
-            PostQuitMessage(-1);
+        trans->delta_count++;
+        if (trans->delta_count >= trans->delta_cap) {
+            trans->delta_cap += 5;
+            trans->deltas = realloc(trans->deltas, trans->delta_cap * sizeof(ui_state_transition_delta));
         }
-        delta = &trans->deltas[change_counter-1];
+        delta = &trans->deltas[trans->delta_count-1];
     } 
     
     if (target.kind != def.kind) {
@@ -184,9 +165,9 @@ void style_add_change(ui_state_transition* trans, char* id, u8 len, ui_state_pro
     delta->target = target;
 }
 
-void style_add_changes(ui_state_transition* trans, str id, ui_state_property target)
+void style_add_changes(ui_style_state* state, u8 state_id, str id, ui_state_property target)
 {
-    return style_add_change(trans, id.data, id.len, target);
+    return style_add_change(state, state_id, id.data, id.len, target);
 }
 
 //==== STATE CHANGING ====
@@ -250,20 +231,37 @@ static void apply_transition(ui_widget* w, ui_state_transition* trans, bool dont
             } break;
         }
     }
+}
 
+void orui_set_state_forced(ui_widget *w, u8 state_id, bool dont_animate)
+{
+
+    // collect all changes we need to make
+    //  first we need to get from the current state to the active state
+    ui_state_transition* to_active = null;
+    if (w->style_state->cur_state != 0) {
+        to_active = &style_get_transition(w->style_state, 0);
+        apply_transition(w, to_active, dont_animate);
+    }
+
+    // then we need to get from the active state to the new state
+    // duplicate values are handled (overriden) by the animation system, so we don't need to do any bookkeeping here
+    ui_state_transition* to_new = &style_get_transition(w->style_state, state_id);
+    if (to_new && to_new != to_active) {
+        apply_transition(w, to_new, dont_animate);
+    }
+
+    w->style_state->cur_state = state_id;
+
+    log_debug("new_width: %u", w->pref_w);
+    log_debug("new_color: %lu", w->background);
+
+    orui_relayout(w);
+    orui_repaint(w);
 }
 
 void orui_set_state(ui_widget *w, u8 state_id, bool dont_animate)
 {
     if (state_id == w->style_state->cur_state) return;
-
-    // collect all changes we need to make
-    //  first we need to get from the current state to the active state
-    ui_state_transition* to_active = w->style_state->transitions[0];
-    apply_transition(w, to_active, dont_animate);
-
-    // then we need to get from the active state to the new state
-    // duplicate values are handled (overriden) by the animation system, so we don't need to do any bookkeeping here
-    ui_state_transition* to_new = w->style_state->transitions[state_id];
-    apply_transition(w, to_new, dont_animate);
+    return orui_set_state_forced(w, state_id, dont_animate);
 }
