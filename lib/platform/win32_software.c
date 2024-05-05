@@ -38,7 +38,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			wnd->width = LOWORD(lParam); wnd->height = HIWORD(lParam);
 			recreate_window_bitmap(wnd);
 			log_debug("SIZE");
-			orui_update((ui_window*)wnd, UPDATE_RESIZE, 0, new_uvec2(wnd->width, wnd->height));
+			orui_update((ui_window*)wnd, UPDATE_RESIZE, 0, &new_uvec2(wnd->width, wnd->height));
 		} break;
 		case WM_PAINT: {
 			log_debug("paint (%s)", wnd == state.main_window ? "true" : "false");
@@ -61,15 +61,14 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				TrackMouseEvent(&wnd->me);
 				wnd->tracking_mouse = true;
 			}
-			log_debug("MOUSE MOVE (%d:%d)", xpos, ypos);
-			orui_update((ui_window*)wnd, UPDATE_MOUSE_MOVE, 0, pos);	
+			orui_update((ui_window*)wnd, UPDATE_MOUSE_MOVE, 0, &pos);	
 		} break;
 		case WM_LBUTTONDOWN: {
 			SetCapture(wnd->hWnd);
 			i16 xpos = LOWORD(lParam); i16 ypos = HIWORD(lParam);
 			uvec2 pos;
 			pos.x = *(i16*)&xpos; pos.y = *(i16*)&ypos;
-			orui_update((ui_window*)wnd, UPDATE_LDOWN, 0, pos);
+			orui_update((ui_window*)wnd, UPDATE_LDOWN, 0, &pos);
 		} break;
 		case WM_LBUTTONUP: {
 			ReleaseCapture();
@@ -77,12 +76,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_MOUSEHOVER: {
 			log_debug("HOVER!");
 			wnd->tracking_mouse = false;
-			orui_update((ui_window*)wnd, UPDATE_HOVER, 0, new_uvec2(0,0));
+			orui_update((ui_window*)wnd, UPDATE_HOVER, 0, null); 
 		} break;
 		case WM_MOUSELEAVE: {
 			log_debug("LEAVE!");
 			wnd->tracking_mouse = false;
-			orui_update((ui_window*)wnd, UPDATE_MOUSE_LEAVE, 0, new_uvec2(0,0));
+			orui_update((ui_window*)wnd, UPDATE_MOUSE_LEAVE, 0, null); 
 		} break;
 	}
 
@@ -109,19 +108,34 @@ void platform_destroy(void)
 i32 platform_message_loop(void)
 {
 	i32 result = 0;
+	LARGE_INTEGER lfreq;
+	QueryPerformanceFrequency(&lfreq);
+	double freq = lfreq.QuadPart / 1000.f;
+	LARGE_INTEGER start, end;
+	bool was_animating = false;
 	while (true) {
 		MSG msg;
 		if (orui_is_animating()) {
-			while (PeekMessage(&msg, null, 0, 0, PM_REMOVE)) {
+			if (!was_animating) {
+				QueryPerformanceCounter(&start);
+				was_animating = true;
+			}
+			if (PeekMessage(&msg, null, 0, 0, PM_REMOVE)) {
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 				if (msg.message == WM_QUIT) {
 					return msg.wParam;
 				}
-				// TODO: send delta time
-				orui_animate();
-			}
+			} 
+			QueryPerformanceCounter(&end);
+			double dt = (end.QuadPart - start.QuadPart);
+			dt /= freq;
+			orui_animate(dt, freq);
+			QueryPerformanceCounter(&start);
+			Sleep(2);
+//			log_debug("animating with dt=%3.3lf", dt);
 		} else {
+			was_animating = false;
 			bool exit = GetMessage(&msg, null, 0, 0);
 			if (exit == 0) {
 				return msg.wParam;	
@@ -156,6 +170,7 @@ bool platform_create_window(platform_window* wnd, u16 width, u16 height, char* t
 	}
  
 	wnd->dc = GetDC(wnd->hWnd);
+	wnd->width = width; wnd->height = height; 
 
 	if (state.main_window == null) state.main_window = wnd;
 

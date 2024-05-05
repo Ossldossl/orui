@@ -2,18 +2,29 @@
 #include "misc.h"
 #include "allocators.h"
 #include "console.h"
+#include "anim.h"
 
 typedef struct {
     bool is_animating;
+    bool continous;
     on_tick_callback on_tick;
-    bucka windows;
+    ui_window* wnds;
+    u16 window_count;
+    u16 window_cap;
 } ui_state_t;
 
 ui_state_t ui_state;
 
 ui_window* orui_create_window(u16 width, u16 height, char* title)
 {
-    ui_window* result = bucka_alloc(&ui_state.windows);
+    ui_state.window_count++; 
+    if (ui_state.window_count >= ui_state.window_cap) {
+        ui_state.window_cap += 2;
+        ui_state.wnds = realloc(ui_state.wnds, ui_state.window_cap * sizeof(ui_window));
+    }
+    ui_window* result = &ui_state.wnds[ui_state.window_count-1];
+    memset(result, 0, sizeof(ui_window));
+
     result->relayout_start_point = null;
 
     str id = cconcats1(title, snew_str("-root"));
@@ -57,7 +68,10 @@ ui_window* orui_init(u16 width, u16 height, char* title)
 {
     platform_init();
     orui_style_init();
-    ui_state.windows = bucka_init(32, sizeof(ui_window));
+    anim_init();
+    ui_state.window_count = 0;
+    ui_state.window_cap = 2;
+    ui_state.wnds = malloc(ui_state.window_cap * sizeof(ui_window)); 
     ui_window* result = orui_create_window(width, height, title);
     return result;
 }
@@ -65,7 +79,9 @@ ui_window* orui_init(u16 width, u16 height, char* title)
 void orui_destroy_window(ui_window* window)
 {
     platform_destroy_window(&window->n);
-    bucka_free(&ui_state.windows, &window);
+    // swap freed window with the last active window
+    memcpy(window, &ui_state.wnds[ui_state.window_count-1], sizeof(ui_window));
+    ui_state.window_count--;
 }
 
 // ==== LIFECYCLE ====
@@ -83,7 +99,7 @@ ui_widget* orui_find_element_by_point(ui_widget* w, uvec2 point)
     else return null;
 }
 
-void orui_update(ui_window* w, orui_update_kind kind, int key, uvec2 vd)
+void orui_update(ui_window* w, orui_update_kind kind, int key, void* dp)
 {
     switch (kind) {
         case UPDATE_RESIZE: {
@@ -91,6 +107,7 @@ void orui_update(ui_window* w, orui_update_kind kind, int key, uvec2 vd)
             w->repaint = true;
             w->relayout_start_point = (ui_widget*)w->root;
             w->relayout_start_depth = 0;
+            uvec2 vd = *(uvec2*)dp;
             w->dims = vd;
             ui_panel* p = w->root;
             p->w.pref_w = vd.x; p->w.pref_h = vd.y;
@@ -100,6 +117,7 @@ void orui_update(ui_window* w, orui_update_kind kind, int key, uvec2 vd)
         case UPDATE_MOUSE_MOVE: {
             // vd ^= mouse pos relative to window corner
             // HANDLE ABSOLUTE POSITIONED WIDGETS
+            uvec2 vd = *(uvec2*)dp;
             ui_widget* hovered = orui_find_element_by_point((ui_widget*)w->root, vd);
             if (hovered == null) {
                 log_error("no hovered found!");
@@ -112,16 +130,27 @@ void orui_update(ui_window* w, orui_update_kind kind, int key, uvec2 vd)
                 hovered->wmsg(hovered, MSG_HOVER_START, 0, null);
                 w->hovered = hovered;
             }
-            if (w->hovered) {
+            else if (w->hovered) {
+                uvec2 vd = *(uvec2*)dp;
                 uvec2 delta = uvec2_sub(vd, w->last_mouse_pos);
                 w->hovered->wmsg(w->hovered, MSG_MOUSE_MOVE, 0, &delta);
             }
+            w->last_mouse_pos = vd;
         } break;
         case UPDATE_MOUSE_LEAVE: {
             if (w->hovered) {
                 w->hovered->wmsg(w->hovered, MSG_HOVER_END, 0, null);
                 w->hovered = null;
             }
+        } break;
+        case UPDATE_ANIM: {
+            if (ui_state.on_tick) { ui_state.on_tick(); }
+            double dt = *(double*)dp;
+            log_debug("dt=%lf", dt);
+            anim_update(dt);
+            w->relayout_start_point = (ui_widget*)w->root;
+            w->relayout_start_depth = 0;
+            w->repaint = true;
         } break;
     }
 
@@ -136,11 +165,31 @@ void orui_update(ui_window* w, orui_update_kind kind, int key, uvec2 vd)
         uvec2 size = sp->layout_handler(sp, bc);
         sp->bounds.r = sp->bounds.l + size.x; sp->bounds.b = sp->bounds.t + size.y;
         w->relayout_start_point = null;
+        orui_update(w, UPDATE_MOUSE_MOVE, 0, &w->last_mouse_pos);
     }
 
     if (w->repaint) {
         orui_paint(w);
+        w->repaint = false;
     }
+}
+
+void orui_animate(double dt, double freq)
+{
+    // TODO: find better solution
+    LARGE_INTEGER start;
+    QueryPerformanceCounter(&start);
+    for (int i = 0; i < ui_state.window_count; i++) {
+        ui_window* w = &ui_state.wnds[i];
+
+        LARGE_INTEGER end;
+        QueryPerformanceCounter(&end);
+//        dt += ((end.QuadPart - start.QuadPart)) / freq;
+
+        orui_update(w, UPDATE_ANIM, 0, &dt);
+
+        QueryPerformanceCounter(&start);
+    } 
 }
 
 void orui_move(ui_widget* w, urect16 new_bounds, bool relayout)
@@ -220,19 +269,20 @@ void orui_relayout(ui_widget* w)
 
 i32 orui_message_loop(void)
 {
-    ui_window* w = (ui_window*)&ui_state.windows.data[0];
-    orui_update(w, UPDATE_RESIZE, 0, new_uvec2(w->dims.x, w->dims.y));
+    ui_window* w = (ui_window*)&ui_state.wnds[0];
+    uvec2 v = new_uvec2(w->dims.x, w->dims.y);
+    orui_update(w, UPDATE_RESIZE, 0, &v);
     i32 result = platform_message_loop();
     // cleanup
     platform_destroy();
-    bucka_destroy(&ui_state.windows);
+    free(ui_state.wnds);
     return result;    
 }
 
-void orui_set_reactive(bool reactive, on_tick_callback callback)
+void orui_set_continous(bool continous, on_tick_callback callback)
 {
-    if (!reactive) {
-        ui_state.is_animating = true;
+    ui_state.continous = continous;
+    if (continous) {
         ui_state.on_tick = callback;
     } else {
         ui_state.on_tick = null;
@@ -241,19 +291,13 @@ void orui_set_reactive(bool reactive, on_tick_callback callback)
 
 bool orui_is_animating(void)
 {
-    return ui_state.is_animating;
+    return ui_state.is_animating || ui_state.continous;
 }
 
 void orui_set_animating(bool animating)
 {
     if (ui_state.on_tick != null) ui_state.is_animating = true;
     else ui_state.is_animating = animating;
-}
-
-void orui_animate(void)
-{
-    if (ui_state.on_tick) { ui_state.on_tick(); }
-    // TODO: animations
 }
 
 void orui_paint_main(painter* p, ui_widget* w)

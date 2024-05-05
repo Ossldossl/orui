@@ -1,0 +1,1 @@
+clang lib/map.c scratch.c -gfull -g3 -o out/example.exe -fsanitize=address

@@ -1,12 +1,14 @@
 #include <stdlib.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 #include "allocators.h"
 #define STYLE_STRINGS_IMPLEMENTATION
 #include "style.h"
 #include "map.h"
 #include "console.h"
 #include "widgets.h"
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "anim.h"
 
 // map_t of ui_state_property_def(s)
 // TODOOOO: somehow check that a property is valid for a given widget
@@ -173,65 +175,79 @@ void style_add_changes(ui_style_state* state, u8 state_id, str id, ui_state_prop
 //==== STATE CHANGING ====
 // TODO: check if offsets are applicable
 // TODO: support animation
+
+#define animate_value(enum_type)                                            \
+    case enum_type: {                                                       \
+        REAL_TYPE_##enum_type* prop = (REAL_TYPE_##enum_type*)unknown_prop; \
+        if (*prop != d->target.as.UREAL_TYPE_##enum_type) {                 \
+            if (dont_animate) {                                             \
+                *prop = d->target.as.UREAL_TYPE_##enum_type;                \
+            } else {                                                        \
+                log_debug("adding anim of type %s", #enum_type);            \
+                add_anim(prop, d->target, trans->duration, trans->ease);    \
+            }                                                               \
+        }                                                                   \
+    } break;
+
 static void apply_transition(ui_widget* w, ui_state_transition* trans, bool dont_animate)
 {
     for (int i = 0; i < trans->delta_count; i++) {
         ui_state_transition_delta* d = &trans->deltas[i];
         void* unknown_prop = (char*)w + d->offset;
         
-        // first compare, then decide if you want to change
-        // TODO: convert to macro
         switch (d->target.kind) {
             case PROPERTY_U16: {
-                u16* prop = (u16*)unknown_prop;
-                if (*prop != d->target.as.u16_) {
-                    if (dont_animate) {
-                        *prop = d->target.as.u16_;
-                    } else {
-                        // TODO: 
-                    }
+              u16 *prop = (u16 *)unknown_prop;
+              if (*prop != d->target.as.u16_) {
+                if (dont_animate) {
+                  *prop = d->target.as.u16_;
+                } else {
+                  _log_("f:\\Programmieren\\cpp\\orui\\lib\\style.c", 199,
+                        LOG_DEBUG, "adding anim of type %s", "PROPERTY_U16");
+                  add_anim(prop, d->target, trans->duration, trans->ease);
                 }
+              }
             } break;
+            animate_value(PROPERTY_FLOAT) 
             case PROPERTY_COLOR: {
-                color* prop = (color*)unknown_prop;
-                if (*prop != d->target.as.color_) {
-                    if (dont_animate) {
-                        *prop = d->target.as.color_;
-                    } else {
-                        // TODO: 
-                    }
+              color *prop = (color *)unknown_prop;
+              if (*prop != d->target.as.color_) {
+                if (dont_animate) {
+                  *prop = d->target.as.color_;
+                } else {
+                  _log_("f:\\Programmieren\\cpp\\orui\\lib\\style.c", 212,
+                        LOG_DEBUG, "adding anim of type %s", "PROPERTY_COLOR");
+                  add_anim(prop, d->target, trans->duration, trans->ease);
                 }
+              }
             } break;
+
             case PROPERTY_URECT16: {
-                urect16* prop = (urect16*)unknown_prop;
+                urect16 *prop = (urect16 *)unknown_prop;
                 if (!rect_equals(*prop, d->target.as.urect16_)) {
-                    if (dont_animate) {
-                        *prop = d->target.as.urect16_;
-                    } else {
-                        // TODO: 
-                    }
+                  if (dont_animate) {
+                    *prop = d->target.as.urect16_;
+                  } else {
+                    add_anim(prop, d->target, trans->duration, trans->ease);
+                  }
                 }
             } break;
-            // TODO: figure out enums
             case PROPERTY_ENUM: {
                 u64* prop = (u64*)unknown_prop;
-                if (*prop != d->target.as.enum_) {
-                    log_fatal("not implenented!"); 
-                }
+                *prop = d->target.as.enum_;
             } break;
             case PROPERTY_BOOL: {
                 bool* prop = (bool*)unknown_prop;
-                if (*prop != d->target.as.bool_) {
-                    if (dont_animate) {
-                        *prop = d->target.as.bool_;
-                    } else {
-                        // TODO: 
-                    }
-                }
+                *prop = d->target.as.bool_;
+            } break;
+            case PROPERTY_STR: {
+                str* prop = (str*)unknown_prop;
+                *prop = d->target.as.str_;
             } break;
         }
     }
 }
+#undef animate_value
 
 void orui_set_state_forced(ui_widget *w, u8 state_id, bool dont_animate)
 {

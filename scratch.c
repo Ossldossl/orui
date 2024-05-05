@@ -1,13 +1,15 @@
-#define ui_value_type_pair(name) ui_value* name
-#define computed_component(name, args, ...) \
-    ui_widget* name(ui_value_type_pair(__VA_ARGS__))
+typedef struct ui_widget {} ui_widget;
+typedef struct ui_modifier {struct ui_modifier* parent, *child; char* id; } ui_modifier;
+typedef struct ui_button {ui_modifier* mod; char* text; } ui_button; 
 
-typedef struct {
-    int counter;
-} ui_value;
+#define button(...) &(ui_button){__VA_ARGS__}
 
-ui_value cur_count;
-
-computed_component(counter_label, (&cur_count)) {
-    return ui_label(to_string(cur_count));
+ui_widget* test() 
+{
+    button(
+        .text="hello, world!",
+        modifiers(
+            
+        )
+    )
 }

@@ -1,19 +1,24 @@
 #pragma once
 #include "misc.h"
 
-typedef struct map_t {
-    struct map_t* left;
-    struct map_t* right;
-    struct map_t* parent;
+typedef struct node_t {
     u64 hash;
+    struct node_t* parent;
+    struct node_t* left;
+    struct node_t* right;
     void* value;
     bool is_red;
+} node_t;
+
+typedef struct {
+    node_t* root;
 } map_t;
 
-void* map_get(map_t* root, char* key, u32 len);
-void map_set(map_t* root, char* key, u32 len, void* value);
-void* map_gets(map_t* root, str key);
-void map_sets(map_t* root, str key, void* value);
+void* map_get(map_t* tree, char* key, u32 len);
+void map_set(map_t* tree, char* key, u32 len, void* value);
+void* map_gets(map_t* tree, str key);
+void map_sets(map_t* tree, str key, void* value);
+void map_remove(map_t* tree, char* key, u32 len);
 
-map_t* map_get_at(map_t* root, u32 index);
-map_t* map_next(map_t* cur);
+node_t* map_get_at(map_t* tree, u32 index);
+node_t* map_next(node_t* cur);

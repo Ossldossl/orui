@@ -62,8 +62,8 @@ ui_style_state* make_default_styles(str style_name, u8 state_count)
     style_add_changes(result, STATE_ACTIVE, new_str("min-height", 11), PROP_VALUE(PROPERTY_U16, 0));
     style_add_changes(result, STATE_ACTIVE, new_str("max-width", 10), PROP_VALUE(PROPERTY_U16, UINT16_MAX));
     style_add_changes(result, STATE_ACTIVE, new_str("max-height", 11), PROP_VALUE(PROPERTY_U16, UINT16_MAX));
-    style_add_changes(result, STATE_ACTIVE, new_str("width", 6), PROP_VALUE(PROPERTY_U16, UINT16_MAX)); // => size based on content
-    style_add_changes(result, STATE_ACTIVE, new_str("height", 7), PROP_VALUE(PROPERTY_U16, UINT16_MAX)); // => size based on content
+    //style_add_changes(result, STATE_ACTIVE, new_str("width", 6), PROP_VALUE(PROPERTY_U16, UINT16_MAX)); // => size based on content
+    //style_add_changes(result, STATE_ACTIVE, new_str("height", 7), PROP_VALUE(PROPERTY_U16, UINT16_MAX)); // => size based on content
 
     style_add_changes(result, STATE_ACTIVE, new_str("grow", 5), PROP_VALUE(PROPERTY_FLOAT, 0.f));
     style_add_changes(result, STATE_ACTIVE, new_str("shrink", 7), PROP_VALUE(PROPERTY_FLOAT, 1.f));
@@ -98,27 +98,38 @@ static uvec2 panel_layout(ui_widget* w, box_constraint bc)
     log_debug("Layout!");
     ui_panel* p = (ui_panel*)w;
     uvec2 own_size;
+    bool content_size_x, content_size_y;
+    content_size_x = content_size_y = false;
     if (w->fixed) {
         own_size.x = w->pref_w - w->padding.l - w->padding.r;
         own_size.y = w->pref_h - w->padding.t - w->padding.b;
+        if (w->pref_w == UINT16_MAX) content_size_x = true;
+        if (w->pref_h == UINT16_MAX) content_size_y = true;
     } else {
         own_size = new_uvec2(UINT16_MAX, UINT16_MAX);
+        content_size_x = true;
+        content_size_y = true;
     }
     
     // TODO: real layout 
     u16 x_cursor = 0;
     u16 biggest_height = 0;
+    box_constraint own_bc = bc_loose(own_size.x, own_size.y);
     for (int i = 0; i < w->child_count; i++) {
         ui_widget* c = w->children[i];
-        uvec2 size = c->layout_handler(c, bc_loose(own_size.x, own_size.y));
+        uvec2 size = c->layout_handler(c, own_bc);
         if (size.y > biggest_height) biggest_height = size.y;
         c->bounds = make_urect16(0, x_cursor, size.y, size.x + x_cursor);
         x_cursor += size.x + PANEL_SPACING;
     }
     if (x_cursor > PANEL_SPACING) x_cursor -= PANEL_SPACING;
 
-    if (!w->fixed) {
-        own_size = new_uvec2(x_cursor, biggest_height);
+    if (content_size_x) {
+        //own_size = new_uvec2(x_cursor, biggest_height);
+        own_size.x = x_cursor;
+    }
+    if (content_size_y) {
+        own_size.y = biggest_height;
     }
 
     own_size = finalize_size(w, own_size);
@@ -135,10 +146,12 @@ static i32 panel_message(ui_widget* widget, ui_msg msg, i32 di, void* dp)
 {
     switch (msg) {
         case MSG_HOVER_START: {
-            orui_set_state(widget, STATE_HOVERED, true);
+            orui_set_state(widget, STATE_HOVERED, false);
+            return 1;
         } break;
         case MSG_HOVER_END: {
-            orui_set_state(widget, STATE_ACTIVE, true);
+            orui_set_state(widget, STATE_ACTIVE, false);
+            return 1;
         } break;
     }
     return 0;
@@ -202,4 +215,28 @@ ui_panel* panel_as_root(ui_window* root, str id)
     result->w.id = id;
     panel_apply_style(result);
     return result;
+}
+
+
+//==== BUTTON ====
+
+void button_init(void)
+{
+    // TODO:
+}
+
+static i32 button_message(ui_widget* widget, ui_msg msg, i32 di, void* dp)
+{
+    switch (msg) {
+        case MSG_CLICK: {
+            log_debug("BUTTON CLICKED!");
+            return 1;
+        } break;
+    }
+    return 0;
+}
+
+ui_button* button(ui_widget* parent, str text)
+{
+    ui_button* result = (ui_button*)make_widget(parent, parent->root, sizeof(ui_button), button_message, button_layout, button_paint);
 }

@@ -7,6 +7,7 @@ typedef enum ui_states ui_states;
 typedef enum ui_state_property_kind ui_state_property_kind;
 typedef struct ui_state_property_def ui_state_property_def;
 typedef struct ui_state_property ui_state_property;
+typedef union ui_state_property_value ui_state_property_value;
 typedef struct ui_state_transition_delta ui_state_transition_delta;
 typedef struct ui_state_transition ui_state_transition;
 typedef struct ui_style_state ui_style_state;
@@ -33,6 +34,7 @@ enum ui_easing {
     EASE_IN_ELASTIC,
     EASE_OUT_ELASTIC,
     EASE_INOUT_ELASTIC,
+    EASING_COUNT,
 };
 
 enum ui_states {
@@ -57,13 +59,21 @@ enum ui_state_property_kind {
 
 //#define bool bool
 
-#define REAL_TYPE_PROPERTY_BOOL bool_
-#define REAL_TYPE_PROPERTY_U16 u16_
-#define REAL_TYPE_PROPERTY_FLOAT float_
-#define REAL_TYPE_PROPERTY_URECT16 urect16_
-#define REAL_TYPE_PROPERTY_COLOR color_
-#define REAL_TYPE_PROPERTY_STR str_
-#define REAL_TYPE_PROPERTY_ENUM u64_
+#define UREAL_TYPE_PROPERTY_BOOL bool_
+#define UREAL_TYPE_PROPERTY_U16 u16_
+#define UREAL_TYPE_PROPERTY_FLOAT float_
+#define UREAL_TYPE_PROPERTY_URECT16 urect16_
+#define UREAL_TYPE_PROPERTY_COLOR color_
+#define UREAL_TYPE_PROPERTY_STR str_
+#define UREAL_TYPE_PROPERTY_ENUM u64_
+
+#define REAL_TYPE_PROPERTY_BOOL bool
+#define REAL_TYPE_PROPERTY_U16 u16
+#define REAL_TYPE_PROPERTY_FLOAT float
+#define REAL_TYPE_PROPERTY_URECT16 urect16
+#define REAL_TYPE_PROPERTY_COLOR color
+#define REAL_TYPE_PROPERTY_STR str
+#define REAL_TYPE_PROPERTY_ENUM u64
 
 #ifdef STYLE_STRINGS_IMPLEMENTATION
 char* ui_state_property_kind_strings[] = {
@@ -83,17 +93,19 @@ struct ui_state_property_def {
     u8 offset;
 };
 
+union ui_state_property_value {
+    bool bool_;
+    u16 u16_;
+    float float_;
+    urect16 urect16_;
+    color color_;
+    str str_;
+    u64 enum_;
+};
+
 struct ui_state_property {
     ui_state_property_kind kind;
-    union {
-        bool bool_;
-        u16 u16_;
-        float float_;
-        urect16 urect16_;
-        color color_;
-        str str_;
-        u64 enum_;
-    } as;
+    ui_state_property_value as;
 };
 
 struct ui_state_transition_delta {
@@ -142,7 +154,7 @@ u64 style_get_enum_values(str id);
 ui_state_property_def style_get_prop(char* id, u8 len);
 ui_state_property_def style_get_props(str id);
 
-#define GET_TYPE(type_enum) REAL_TYPE_##type_enum
+#define GET_TYPE(type_enum) UREAL_TYPE_##type_enum
 #define PROP_VALUE(type_enum, value) ((ui_state_property){.kind=type_enum, .as.GET_TYPE(type_enum) = value})
 void style_add_change(ui_style_state* state, u8 state_id, char* id, u8 len, ui_state_property target);
 void style_add_changes(ui_style_state* state, u8 state_id, str id, ui_state_property target);

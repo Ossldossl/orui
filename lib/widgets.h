@@ -147,7 +147,7 @@ typedef enum ui_button_states {
 } ui_button_states;
 
 struct ui_button {
-    ui_widget w;
+    struct ui_widget;
     char* label;   
     empty_event_handler on_click;
 };
